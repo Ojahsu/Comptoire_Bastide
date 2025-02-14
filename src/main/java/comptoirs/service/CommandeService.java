@@ -3,6 +3,7 @@ package comptoirs.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import comptoirs.entity.Produit;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -88,8 +89,15 @@ public class CommandeService {
      */
     @Transactional
     public Ligne ajouterLigne(int commandeNum, int produitRef, @Positive int quantite) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        Commande commande = commandeDao.findById(commandeNum).orElseThrow();
+        Produit produit = produitDao.findById(produitRef).orElseThrow();
+        Ligne ligne = new Ligne(commande, produit, quantite);
+        if (produit.isIndisponible() || commande.getEnvoyeele() != null || produit.getUnitesEnStock() <= quantite){
+            throw new IllegalStateException();
+        }
+        produit.setUnitesCommandees(produit.getUnitesCommandees() + quantite);
+        ligneDao.save(ligne);
+        return ligne;
     }
 
     /**
@@ -108,7 +116,16 @@ public class CommandeService {
      */
     @Transactional
     public Commande enregistreExpedition(int commandeNum) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        Commande commande = commandeDao.findById(commandeNum).orElseThrow();
+        if (commande.getEnvoyeele() != null){
+            throw new IllegalStateException();
+        }
+        for (Ligne l : commande.getLignes()){
+            Produit p = l.getProduit();
+            p.setUnitesEnStock(l.getProduit().getUnitesEnStock() - l.getQuantite());
+            p.setUnitesCommandees(l.getProduit().getUnitesCommandees() - l.getQuantite());
+        }
+        commande.setEnvoyeele(LocalDate.now());
+        return commande;
     }
 }
